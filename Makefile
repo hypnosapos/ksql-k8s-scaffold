@@ -17,6 +17,7 @@ GKE_NUM_NODES       ?= 3
 GKE_MACHINE_TYPE    ?= n1-standard-8
 
 GITHUB_TOKEN        ?= githubtoken
+CP_TAG              ?= v5.0.0-1
 
 UNAME := $(shell uname -s)
 ifeq ($(UNAME),Linux)
@@ -77,7 +78,7 @@ gke-tiller-helm: ## Install Helm on GKE cluster.
 .PHONY: gke-ksql-install
 gke-ksql-install: ## Installing ksql components
 	@docker exec $(DOCKER_CONT_NAME) \
-	  sh -c "git clone https://github.com/confluentinc/cp-helm-charts.git \
+	  sh -c "git clone --branch $(CP_TAG) https://github.com/confluentinc/cp-helm-charts.git \
 	         && helm repo update \
 	         && helm install --name my-confluent-oss cp-helm-charts"
 
