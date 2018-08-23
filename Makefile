@@ -98,15 +98,11 @@ gke-delete-cluster: ## Delete a kubernetes cluster on GKE.
 gke-ui: ## Launch kubernetes dashboard through the proxy.
 	$(OPEN) http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/
 
-.PHONY: ksql-gke-conf
-ksql-gke-conf: ## GKE ksql configuration
+.PHONY: ksql-conf
+ksql-conf: ## Ksql cli configuration
 	@gcloud container clusters get-credentials $(GKE_CLUSTER_NAME) --zone "$(GCP_ZONE)" --project $(GCP_PROJECT_ID)
 	@kubectl config set-credentials gke_$(GCP_PROJECT_ID)_$(GCP_ZONE)_$(GKE_CLUSTER_NAME) --username=admin \
 	--password=$$(gcloud container clusters describe $(GKE_CLUSTER_NAME) --zone "$(GCP_ZONE)" | grep password | awk '{print $$2}')
 	@kubectl create -f ksql-cli.yaml
 	@while [ $$(kubectl get pod ksql-cli -o=jsonpath='{.status.phase}') != "Running" ]; do sleep 1; done
 	@kubectl exec -ti ksql-cli ksql http://$$(kubectl get svc -l app=cp-ksql-server -o=jsonpath='{.items[0].spec.clusterIP}'):8088
-
-.PHONY: ksql-local-conf
-ksql-local-conf: ## Local ksql configuration
-	@echo "Execute: ksql http://$$(kubectl get svc -l app=cp-ksql-server -o=jsonpath='{.items[0].spec.clusterIP}'):8088"
