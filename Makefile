@@ -53,7 +53,7 @@ gke-create-cluster: ## Create a kubernetes cluster on GKE.
 	@docker exec $(DOCKER_CONT_NAME) \
 	   sh -c "gcloud container clusters get-credentials $(GKE_CLUSTER_NAME) --zone "$(GCP_ZONE)" --project $(GCP_PROJECT_ID) \
 	          && kubectl config set-credentials gke_$(GCP_PROJECT_ID)_$(GCP_ZONE)_$(GKE_CLUSTER_NAME) --username=admin \
-	          --password=$$(gcloud container clusters describe $(GKE_CLUSTER_NAME) | grep password | awk '{print $$2}')"
+	          --password=$$(gcloud container clusters describe $(GKE_CLUSTER_NAME) --zone "$(GCP_ZONE)" | grep password | awk '{print $$2}')"
 
 .PHONY: gke-ui-login-skip
 gke-ui-login-skip: ## TRICK: Grant complete access to dashboard. Be careful, anyone could enter into your dashboard and execute admin ops.
@@ -78,7 +78,7 @@ gke-tiller-helm: ## Install Helm on GKE cluster.
 .PHONY: gke-ksql-install
 gke-ksql-install: ## Installing ksql components
 	@docker exec $(DOCKER_CONT_NAME) \
-	  sh -c "git clone --branch $(CP_TAG) https://github.com/confluentinc/cp-helm-charts.git \
+	  sh -c "git clone https://github.com/confluentinc/cp-helm-charts.git \
 	         && helm repo update \
 	         && helm install --name my-confluent-oss cp-helm-charts"
 
@@ -97,3 +97,16 @@ gke-delete-cluster: ## Delete a kubernetes cluster on GKE.
 .PHONY: gke-ui
 gke-ui: ## Launch kubernetes dashboard through the proxy.
 	$(OPEN) http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/
+
+.PHONY: ksql-gke-conf
+ksql-gke-conf: ## GKE ksql configuration
+	@gcloud container clusters get-credentials $(GKE_CLUSTER_NAME) --zone "$(GCP_ZONE)" --project $(GCP_PROJECT_ID)
+	@kubectl config set-credentials gke_$(GCP_PROJECT_ID)_$(GCP_ZONE)_$(GKE_CLUSTER_NAME) --username=admin \
+	--password=$$(gcloud container clusters describe $(GKE_CLUSTER_NAME) --zone "$(GCP_ZONE)" | grep password | awk '{print $$2}')
+	@kubectl create -f ksql-cli.yaml
+	@while [ $$(kubectl get pod ksql-cli -o=jsonpath='{.status.phase}') != "Running" ]; do sleep 1; done
+	@kubectl exec -ti ksql-cli ksql http://$$(kubectl get svc -l app=cp-ksql-server -o=jsonpath='{.items[0].spec.clusterIP}'):8088
+
+.PHONY: ksql-local-conf
+ksql-local-conf: ## Local ksql configuration
+	@echo "Execute: ksql http://$$(kubectl get svc -l app=cp-ksql-server -o=jsonpath='{.items[0].spec.clusterIP}'):8088"
